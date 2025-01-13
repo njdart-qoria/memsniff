@@ -2,9 +2,10 @@ package aggregate
 
 import (
 	"fmt"
-	"github.com/HdrHistogram/hdrhistogram-go"
 	"math"
 	"strconv"
+
+	"github.com/HdrHistogram/hdrhistogram-go"
 )
 
 // Aggregator summarizes a set of integer data points to a single number.
@@ -157,7 +158,7 @@ func (p *Percentile) Reset() {
 // IsValidAgg returns true if desc is a valid descriptor for an aggregator type.
 func IsValidAgg(desc string) bool {
 	switch desc {
-	case "max", "min", "mean", "avg", "sum":
+	case "max", "min", "mean", "avg", "sum", "count":
 		return true
 
 	default:
@@ -200,6 +201,9 @@ func NewFactoryFromDescriptor(desc string) (AggregatorFactory, error) {
 	case "sum":
 		return func() Aggregator { return &Sum{} }, nil
 
+	case "count":
+		return func() Aggregator { return &Count{} }, nil
+
 	default:
 		if len(desc) >= 3 && desc[0] == 'p' {
 			return percentileFactoryFromDescriptor(desc)
@@ -224,4 +228,20 @@ func percentileFactoryFromDescriptor(desc string) (AggregatorFactory, error) {
 	}
 
 	return func() Aggregator { return NewPercentile(q, maxMicros) }, nil
+}
+
+type Count struct {
+	val int64
+}
+
+func (c *Count) Add(n int64) {
+	c.val += 1
+}
+
+func (c *Count) Result() int64 {
+	return c.val
+}
+
+func (c *Count) Reset() {
+	c.val = 0
 }

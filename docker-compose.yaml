@@ -1,0 +1,60 @@
+services:
+    memsniff:
+        build:
+            dockerfile: ./Dockerfile
+            platforms:
+                - linux/amd64
+        image: memsniff:local
+        tty: true
+        stdin_open: true
+        command:
+            - "-i=lo"
+            - "--nogui=true"
+            - "-o=/dev/stdout"
+            - "-p=11211"
+            - "--interval=1"
+            - "--format=key,max(size),count(size),sum(size)"
+            - "--cumulative"
+    memcache:
+        image: memcached:1.5.16
+        command: ["memcached"]
+        network_mode: "service:memsniff"
+    client:
+        image: alpine:latest
+        stop_signal: SIGKILL
+        stop_grace_period: 1s
+        command:
+            - "sh"
+            - "-eu"
+            - "-c"
+            - |
+                apk add -U busybox-extras >> log
+                echo -e "set short 0 900 3\nbar" | telnet 127.0.0.1 11211 >> log
+                echo "Polling for key 'short'"
+                {
+                  while true; do
+                    echo -e "get short"
+                    sleep 0.01
+                  done;
+                } | telnet 127.0.0.1 11211 >> log
+        network_mode: "service:memsniff"
+
+    client2:
+        image: alpine:latest
+        stop_signal: SIGKILL
+        stop_grace_period: 1s
+        command:
+            - "sh"
+            - "-eu"
+            - "-c"
+            - |
+                apk add -U busybox-extras >> log
+                { echo "set long 0 900 1100"; yes "long value" | head -n 100 | tr '\n' ' '; echo; } | telnet 127.0.0.1 11211 >> log
+                echo "Polling for key 'long'"
+                {
+                  while true; do
+                    echo -e "get long"
+                    sleep 10
+                  done;
+                } | telnet 127.0.0.1 11211 >> log
+        network_mode: "service:memsniff"
